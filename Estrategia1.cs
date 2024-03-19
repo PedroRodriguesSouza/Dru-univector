@@ -1,11 +1,14 @@
-﻿using Emgu.CV;
+using Emgu.CV;
 using Emgu.CV.Freetype;
 using Futebol.comum;
 using Futebol.sincronismo;
 using MathNet.Numerics.Distributions;
 using System;
 using System.Collections.Generic;
+using System.DirectoryServices.ActiveDirectory;
 using System.Text.Json.Serialization;
+using static Emgu.Util.Platform;
+using static Futebol.estrategias.estrategia1.RoboE1;
 using static Futebol.sincronismo.ControleJogo;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
@@ -988,9 +991,9 @@ namespace Futebol.estrategias.estrategia1
             ponto1.x -= 350;
             ponto1.y -= 300;
 
-            for (int k = 0; k <= 700; k = k + 20)
+            for (int k = 0; k <= 700; k = k + 30)
             {
-                for (int j = 0; j <= 600; j = j + 20)
+                for (int j = 0; j <= 600; j = j + 30)
                 {
                     ponto2 = ponto1.Clone();
                     ponto2.x += k;
@@ -998,6 +1001,12 @@ namespace Futebol.estrategias.estrategia1
 
                     //if (ponto2.x != bola.x || ponto2.y != bola.y)
                     {
+                        double theta = PhiComposto(ponto2, bola);
+                        Vector2D prox = new Vector2D(ponto2.x + Math.Sin(theta) * 20, ponto2.y + Math.Cos(theta) * 20);
+                        //prox = new Vector2D(ponto2.x + Math.Cos(theta) * 20, ponto2.y + Math.Sin(theta) * 20);
+
+                        saida.DesenharReta(ponto2, prox);
+
                         //TUF
                         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                         //constantes de e Kr
@@ -1319,19 +1328,225 @@ namespace Futebol.estrategias.estrategia1
             }
         }
 
+        public double PhiH(Vector2D ponto, Vector2D bola, double de, bool cw)
+        {
+
+            double theta = Math.Atan2(bola.y - ponto.y, bola.x - ponto.x);
+            //theta = Math.Atan2(ponto.y - bola.y, ponto.x - bola.x);
+
+            double kr = 160;
+
+            double p = ponto.Distance(bola);
+
+            //de = 160;
+
+            double pi2 = Math.PI / 2;
+            double aux;
+
+            if (p > de)
+                aux = pi2 * (((de + kr) / (p + kr)));
+            else
+                aux = pi2 * Math.Sqrt(p / de);
+
+            if(cw) return theta + aux;
+
+            else return theta - aux;
+        }
+
+        public Vector2D NH(Vector2D ponto, Vector2D bola, double de, bool cw)
+        {
+            double phiH = PhiH(ponto, bola, de, cw);
+            return new Vector2D(Math.Cos(phiH), Math.Sin(phiH));
+        }
+
+        public Vector2D NHR(Vector2D ponto, Vector2D bola, double de, bool cw)
+        {
+            double phiH = PhiH(ponto, bola, de, cw);
+            return new Vector2D(Math.Sin(phiH), Math.Cos(phiH));
+        }
+
+        public double PhiR(Vector2D robo, Tuple<Vector2D, bool>[] obstaculos)
+        {
+            //Vector2D[] obstaculos = new Vector2D[2] {bola, robo};
+            double di, cosi, seni, cos = 0, sen = 0;
+
+            for (int i = 0; i < obstaculos.Length; i++)
+            {
+                if (obstaculos[i].Item2)
+                {
+                    di = Math.Sqrt(Math.Pow(robo.x - obstaculos[i].Item1.x, 2) + Math.Pow(robo.y - obstaculos[i].Item1.y, 2));
+                    cosi = (robo.x - obstaculos[i].Item1.x) / di;
+                    seni = (robo.y - obstaculos[i].Item1.y) / di;
+                    cos += cosi / di;
+                    sen += seni / di;
+                }
+            }
+
+            double aux = Math.Sqrt(Math.Pow(cos, 2) + Math.Pow(sen, 2));
+            double phi = Math.Atan2(cos / aux, sen / aux);
+            //phi = Math.Atan2(sen / aux, cos / aux);
+
+            return phi;
+        }
+
+        public double PhiTUF(Vector2D robo, Vector2D objetivo)
+        {
+            double de = 40;
+            double phi = 0;
+
+            double y = objetivo.y - robo.y;
+
+            double yl = y + de;
+            double yr = y - de;
+
+            Vector2D pl = new Vector2D(objetivo.x - robo.x, yr);
+
+            Vector2D pr = new Vector2D(objetivo.x - robo.x, yl);
+
+            if (-de <= y && y < de)
+            {
+                Vector2D numerador1;
+                Vector2D numerador2;
+
+                numerador1 = NH(pl, objetivo, de, false).Mult(yl);
+                numerador2 = NH(pr, objetivo, de, true).Mult(yr);
+
+                numerador1.Add(numerador2);
+                numerador1.Mult(1 / (2 * de));
+
+                phi = Math.Atan2(numerador1.y, numerador1.x);
+            }
+            else if (y < -de)
+                phi = PhiH(pl, objetivo, de, true);
+            else if (y >= de)
+                phi = PhiH(pr, objetivo, de, false);
+
+            return phi;
+        }
+
+        public double PhiAUF(Vector2D robo, Tuple<Vector2D, bool>[] obstaculos)
+        {
+            double phiR = PhiR(robo, obstaculos);
+            return phiR;
+        }
+        public double PhiComposto(RoboE1 robo, Vector2D bola)
+        {
+            //d_min = 3.48 # cm
+            //delta = 4.57 # cm
+
+            double dmin = 13.92;
+            double delta = 18.30;
+
+            Tuple<Vector2D, bool>[] obstaculos = DefineObstaculos(robo, bola);
+
+            double r = robo.posicao.Distance(ObstaculoMaisProximo(robo, obstaculos)); // r = 0 caso não exista obstaculos
+
+            if(r == 0)         return PhiTUF(robo.posicao, bola);
+
+            else if(r <= dmin) return PhiAUF(robo.posicao, obstaculos);
+
+            else               return PhiAUF(robo.posicao, obstaculos) * G(r - dmin, delta) + PhiTUF(robo.posicao, bola) * (1 - G(r - dmin, delta));
+        }
+
+        public double PhiComposto(Vector2D robo, Vector2D bola) // para fins de teste
+        {
+            //d_min = 3.48 # cm
+            //delta = 4.57 # cm
+
+            double dmin = 0;
+            double delta = 20;
+
+            Tuple<Vector2D, bool>[] obstaculos = DefineObstaculos(bola);
+
+            double r = robo.Distance(ObstaculoMaisProximo(robo, obstaculos)); // r = 0 caso não exista obstaculos
+            r = 0;
+            if (r == 0)         return PhiTUF(robo, bola);
+
+            else if (r <= dmin) return PhiAUF(robo, obstaculos);
+
+            else                return PhiAUF(robo, obstaculos) * G(r - dmin, delta) + PhiTUF(robo, bola) * (1 - G(r - dmin, delta));
+        }
+
+        public double G(double r, double delta)
+        {
+            return Math.Pow(Math.E, (r * r / (2 * delta * delta)));
+        }
+
+        public Vector2D ObstaculoMaisProximo(RoboE1 robo, Tuple<Vector2D, bool>[] obstaculos)
+        {
+            Vector2D maisProximo = new Vector2D(robo.posicao.x, robo.posicao.y);
+
+            for (int i = 0; i < obstaculos.Length; i++)
+                if (obstaculos[i].Item2 && robo.posicao.Distance(obstaculos[i].Item1) < robo.posicao.Distance(maisProximo))
+                    maisProximo = obstaculos[i].Item1;
+
+            return maisProximo; // retorna a posicao do robo caso não tenha nenhum obstaculo
+        }
+
+        public Vector2D ObstaculoMaisProximo(Vector2D robo, Tuple<Vector2D, bool>[] obstaculos) // para fins de teste
+        {
+            Vector2D maisProximo = new Vector2D(8000000000000, 8000000000000);
+
+            for (int i = 0; i < obstaculos.Length; i++)
+                if (obstaculos[i].Item2 && robo.Distance(obstaculos[i].Item1) < robo.Distance(maisProximo))
+                    if(robo.Distance(obstaculos[i].Item1) > 0)
+                        maisProximo = obstaculos[i].Item1;
+
+            if(maisProximo.x == 8000000000000 && maisProximo.y == 8000000000000)
+                maisProximo = robo;
+
+            return maisProximo; // retorna a posicao do robo caso não tenha nenhum obstaculo
+        }
+
+        public Tuple<Vector2D, bool>[] DefineObstaculos(RoboE1 robo, Vector2D bola) 
+        {
+            //if(autoPosicionando)
+            Tuple<Vector2D, bool>[] obstaculos =
+            {
+                Tuple.Create(ambiente.Adversario.Robo[0].posicao, false),
+                Tuple.Create(ambiente.Adversario.Robo[1].posicao, false),
+                Tuple.Create(ambiente.Adversario.Robo[2].posicao, false),
+                Tuple.Create(bola, false),
+                Tuple.Create(ambiente.Time.Robo[0].posicao, false),
+                Tuple.Create(ambiente.Time.Robo[1].posicao, false),
+                Tuple.Create(ambiente.Time.Robo[2].posicao, false),
+            };
+            if(robo.papel == RoboE1.Papel.Atacante)
+            {
+                double distanciaMinDesvioAtacante = 100;
+                if(robo.posicao.Distance(bola) > distanciaMinDesvioAtacante)
+                {
+                    obstaculos[0] = new (ambiente.Adversario.Robo[0].posicao, true);
+                    obstaculos[1] = new (ambiente.Adversario.Robo[1].posicao, true);
+                    obstaculos[2] = new (ambiente.Adversario.Robo[2].posicao, true);
+                }
+            }
+            else if (robo.papel == RoboE1.Papel.Zagueiro)
+            {
+                if (ambiente.Time.Robo[0].papel == RoboE1.Papel.Atacante)
+                    obstaculos[4] = new (ambiente.Time.Robo[0].posicao, true);
+                else if (ambiente.Time.Robo[1].papel == RoboE1.Papel.Atacante)
+                    obstaculos[5] = new(ambiente.Time.Robo[1].posicao, true);
+                else
+                    obstaculos[6] = new(ambiente.Time.Robo[2].posicao, true);
+            }
+            return obstaculos;
+        }
+        public Tuple<Vector2D, bool>[] DefineObstaculos(Vector2D bola) // para fins de teste
+        {
+            Tuple<Vector2D, bool>[] obstaculos =
+            {
+                Tuple.Create(ambiente.Adversario.Robo[0].posicao, false),
+                Tuple.Create(ambiente.Adversario.Robo[1].posicao, false),
+                Tuple.Create(ambiente.Adversario.Robo[2].posicao, false),
+                Tuple.Create(bola, false),
+                Tuple.Create(ambiente.Time.Robo[0].posicao, true),
+                Tuple.Create(ambiente.Time.Robo[1].posicao, false),
+                Tuple.Create(ambiente.Time.Robo[2].posicao, false),
+            };
+            return obstaculos;
+        }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-    }
+     }
 }

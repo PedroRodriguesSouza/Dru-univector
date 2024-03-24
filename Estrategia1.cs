@@ -2,7 +2,6 @@ using Futebol.comum;
 using Futebol.estrategias.estrategia2;
 using Futebol.sincronismo;
 using Futebol.src.estrategias.estrategia1;
-using nkast.Aether.Physics2D.Common.PhysicsLogic;
 using System;
 using System.Collections.Generic;
 using static Futebol.sincronismo.ControleJogo;
@@ -2060,173 +2059,129 @@ namespace Futebol.estrategias.estrategia1
                 */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        public void DesenhaTrajetoria(Vector2D robo, Vector2D bola)
+        public void DesenhaCampo(Vector2D robo, Vector2D bola)
         {
 
             Campo campo = ambiente.Campo;
             ControleJogo.Lado lado = ambiente.Time.lado;
-
-            //saida.DesenharCirculo(obstaculo, raio);
-            //saida.DesenharReta(origem, destino);
+            Limites gol = lado == ControleJogo.Lado.Direito ? campo.gol_esquerdo : campo.gol_direito;
 
 
             Vector2D ponto1 = campo.limites.centro.Clone();
-            Vector2D ponto2 = Vector2D.Zero();
+            Vector2D ponto2;
 
             ponto1.x -= 350;
             ponto1.y -= 300;
 
-            for (int k = 0; k <= 700; k = k + 30)
+            for (int k = 0; k <= 700; k = k + 20)
             {
-                for (int j = 0; j <= 600; j = j + 30)
+                for (int j = 0; j <= 600; j = j + 20)
                 {
                     ponto2 = ponto1.Clone();
                     ponto2.x += k;
                     ponto2.y += j;
 
-                    //if (ponto2.x != bola.x || ponto2.y != bola.y)
-                    {
 
-                        double kr = 100; // atenuacao da curva
-                        double de = 200; // distancia minima de desvio
-                        Vector2D ponto = ponto2.Sub(bola);
-                        if (ponto2.x == bola.x)
-                        {
-                            ponto.x += 100;
-                            ponto.y += 100;
-                        }
-                        double theta = Math.Atan2(ponto.y, ponto.x);
-                        double angle = PhiTUF(theta, ponto, kr, de);
-                        Vector2D prox = new Vector2D(ponto2.x + Math.Cos(angle) * 10, ponto2.y + Math.Sin(angle) * 10);
+                    double kr = 10; // atenuacao da curva
+                    double de = 70;  // diametro do desvio
 
-                        //prox = new Vector2D(ponto2.x + Math.Cos(theta) * 20, ponto2.y + Math.Sin(theta) * 20);
+                    double angulo = Math.Atan2(bola.y - gol.centro.y , bola.x - gol.centro.x);
 
-                        saida.DesenharReta(ponto2, prox);
+                    Vector2D roboRotacionado = RotacionaEixo(angulo, ponto2);
+                    Vector2D bolaRotacionada = RotacionaEixo(angulo, bola);
 
-                        //TUF
-                        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                        //constantes de e Kr
-                        //de = 5.37 # cm -> raio da espiral
-                        //kr = 4.15 # cm -> suavizacao da espiral 
-                        //pixel2metros = 400
-                        //de = 21.5
-                        //kr = 16,6
+                    Vector2D delta = roboRotacionado.Sub(bolaRotacionada);
+                    double theta = Math.Atan2(delta.y, delta.x);
 
-                        //r = sqrt(x2 + y2) distancia entre origem e o ponto
-                        //theta = arctan2(y / x)
+                    double angle = PhiTUF(theta, delta, kr, de);
 
-                        //se r > de :
-                        //HS_CW = theta + 90º * ((de + Kr) / (r + Kr))
-                        //HS_CCW = theta - 90º * ((de + Kr) / (r + Kr))
+                    //Vector2D ponto = ponto2.Sub(bola);
+                    //double theta = Math.Atan2(ponto.y, ponto.x);
+                    //double angle = PhiTUF(theta, ponto, kr, de);
+                    Vector2D prox = new Vector2D(ponto2.x + Math.Cos(angle) * 10, ponto2.y + Math.Sin(angle) * 10);
 
-                        //se r<de :
-                        //HS_CW = theta + 90º* sqrt(r/ de)
-                        //HS_CCW = theta - 90º* sqrt(r/ de)
+                    //prox = new Vector2D(ponto2.x + Math.Cos(theta) * 20, ponto2.y + Math.Sin(theta) * 20);
 
-                        //double de = 21.5;
-                        //double kr = 16.6;
-                        //Vector2D origem = new Vector2D();
+                    saida.DesenharReta(ponto2, prox);
 
-                        //origem = ambiente.Campo.limites.centro;
-                        //double x = ponto2.x - origem.x;
-                        //double y = ponto2.y - origem.y;
+                    //AUF
+                    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-                        //double r = Math.Sqrt(Math.Pow(x, 2) + Math.Pow(y, 2));
-                        //double theta = Math.Atan2(y, x);
+                    //Vector2D[] obstaculos = new Vector2D[2] {bola, robo};
+                    //double di, cosi = 0, seni = 0, cos = 0, sen = 0;
 
-                        //double g90 = Math.PI / 2;
+                    //for (int i = 0; i < obstaculos.Length; i++)
+                    //{
+                    //    di = Math.Sqrt(Math.Pow(ponto2.x - obstaculos[i].x, 2) + Math.Pow(ponto2.y - obstaculos[i].y, 2));
+                    //    cosi = (ponto2.x - obstaculos[i].x) / di;
+                    //    seni = (ponto2.y - obstaculos[i].y) / di;
+                    //    cos += cosi / di;
+                    //    sen += seni / di;
+                    //}
+                    ////arctan2(cos / sqrt(cos2 + sin2), sin / sqrt(cos2 + sin2))
 
-                        //if(r<de)
-                        //{
-                        //    double hs_cw = theta + g90 * (de + kr) / (r + kr);
-                        //    double hs_ccw = theta - g90 * (de + kr) / (r + kr);
-                        //}
-                        //else
-                        //{
-                        //    double hs_cw = theta + g90 * Math.Sqrt(r/de);
-                        //    double hs_ccw = theta - g90 * Math.Sqrt(r/de);
-                        //}
-                        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                        ////em desenvolvimento
+                    //double aux = Math.Sqrt(Math.Pow(cos, 2) + Math.Pow(sen, 2));
+                    //double AUF = Math.Atan2(cos / aux, sen / aux);
 
-                        //AUF
-                        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                    //Vector2D prox = new Vector2D(ponto2.x + Math.Sin(AUF) * 20, ponto2.y + Math.Cos(AUF) * 20);
 
-                        //Vector2D[] obstaculos = new Vector2D[2] {bola, robo};
-                        //double di, cosi = 0, seni = 0, cos = 0, sen = 0;
+                    //saida.DesenharReta(ponto2, prox);
 
-                        //for (int i = 0; i < obstaculos.Length; i++)
-                        //{
-                        //    di = Math.Sqrt(Math.Pow(ponto2.x - obstaculos[i].x, 2) + Math.Pow(ponto2.y - obstaculos[i].y, 2));
-                        //    cosi = (ponto2.x - obstaculos[i].x) / di;
-                        //    seni = (ponto2.y - obstaculos[i].y) / di;
-                        //    cos += cosi / di;
-                        //    sen += seni / di;
-                        //}
-                        ////arctan2(cos / sqrt(cos2 + sin2), sin / sqrt(cos2 + sin2))
+                    //Atrativa
+                    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                    //kt.dt.nt
+                    //kt coeficiente de atração
+                    //dt distancia do robo para a bola
+                    //nt univector na direção do robo para a bola
 
-                        //double aux = Math.Sqrt(Math.Pow(cos, 2) + Math.Pow(sen, 2));
-                        //double AUF = Math.Atan2(cos / aux, sen / aux);
+                    //double kt = 50;
+                    ////double dt = Math.Sqrt(Math.Pow((robo.posicao.x - bola.posicao.x),2) + Math.Pow((robo.posicao.y - bola.posicao.y), 2));
+                    //double dt = robo.Distance(bola);
+                    //dt = 1;
+                    //Vector2D nt = new Vector2D();
+                    //nt = bola.Sub(robo).Unitary();
 
-                        //Vector2D prox = new Vector2D(ponto2.x + Math.Sin(AUF) * 20, ponto2.y + Math.Cos(AUF) * 20);
+                    //Vector2D forcaA = new Vector2D(kt * dt * nt.x, kt * dt * nt.y);
+                    //Vector2D prox = new Vector2D(robo.x + forcaA.x, robo.y + forcaA.y);
 
-                        //saida.DesenharReta(ponto2, prox);
+                    //Vector2D retaGol = Vector2D.Zero();
+                    //Vector2D posGol = Vector2D.Zero();
+                    //retaGol.x = robo.x;
 
-                        //Atrativa
-                        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                        //kt.dt.nt
-                        //kt coeficiente de atração
-                        //dt distancia do robo para a bola
-                        //nt univector na direção do robo para a bola
+                    //if (lado == ControleJogo.Lado.Direito)
+                    //{
+                    //    posGol.x = campo.gol_esquerdo.ladoEsquerdo - ConfiguracoesE1.DESLOCAMENTO_GOL;
+                    //    posGol.y = campo.gol_esquerdo.centro.y;
+                    //}
+                    //else
+                    //{
+                    //    posGol.x = campo.gol_direito.ladoDireito + ConfiguracoesE1.DESLOCAMENTO_GOL;
+                    //    posGol.y = campo.gol_direito.centro.y;
+                    //}
 
-                        //double kt = 50;
-                        ////double dt = Math.Sqrt(Math.Pow((robo.posicao.x - bola.posicao.x),2) + Math.Pow((robo.posicao.y - bola.posicao.y), 2));
-                        //double dt = robo.Distance(bola);
-                        //dt = 1;
-                        //Vector2D nt = new Vector2D();
-                        //nt = bola.Sub(robo).Unitary();
+                    //double a = (bola.y - posGol.y) / (bola.x - posGol.x);
+                    //double b = posGol.y - a * posGol.x;
+                    //retaGol.y = a * retaGol.x + b;
 
-                        //Vector2D forcaA = new Vector2D(kt * dt * nt.x, kt * dt * nt.y);
-                        //Vector2D prox = new Vector2D(robo.x + forcaA.x, robo.y + forcaA.y);
-
-                        //Vector2D retaGol = Vector2D.Zero();
-                        //Vector2D posGol = Vector2D.Zero();
-                        //retaGol.x = robo.x;
-
-                        //if (lado == ControleJogo.Lado.Direito)
-                        //{
-                        //    posGol.x = campo.gol_esquerdo.ladoEsquerdo - ConfiguracoesE1.DESLOCAMENTO_GOL;
-                        //    posGol.y = campo.gol_esquerdo.centro.y;
-                        //}
-                        //else
-                        //{
-                        //    posGol.x = campo.gol_direito.ladoDireito + ConfiguracoesE1.DESLOCAMENTO_GOL;
-                        //    posGol.y = campo.gol_direito.centro.y;
-                        //}
-
-                        //double a = (bola.y - posGol.y) / (bola.x - posGol.x);
-                        //double b = posGol.y - a * posGol.x;
-                        //retaGol.y = a * retaGol.x + b;
-
-                        //dt = retaGol.Distance(robo);
-                        //nt = retaGol.Sub(robo).Unitary();
-                        //kt = 0.5;
-                        //Vector2D reta = new Vector2D(kt * dt * nt.x, kt * dt * nt.y);
+                    //dt = retaGol.Distance(robo);
+                    //nt = retaGol.Sub(robo).Unitary();
+                    //kt = 0.5;
+                    //Vector2D reta = new Vector2D(kt * dt * nt.x, kt * dt * nt.y);
 
 
-                        //prox = prox.Add(reta);
+                    //prox = prox.Add(reta);
 
-                        ////saida.DesenharReta(robo, prox);
-                        ////saida.DesenharReta(retaGol, posGol);
+                    ////saida.DesenharReta(robo, prox);
+                    ////saida.DesenharReta(retaGol, posGol);
 
-                        ////prox = pontoReta.Clone();
-                        //var der1 = Redimensiona(prox, 1);//delta.Mult(0.2);
-                        //var ponto3 = robo.Add(der1);
+                    ////prox = pontoReta.Clone();
+                    //var der1 = Redimensiona(prox, 1);//delta.Mult(0.2);
+                    //var ponto3 = robo.Add(der1);
 
 
 
-                        //saida.DesenharVetores(ponto2, ponto3);
-                    }
+                    //saida.DesenharVetores(ponto2, ponto3);
+                    
                 }
             }
 
@@ -2235,7 +2190,7 @@ namespace Futebol.estrategias.estrategia1
         }
 
 
-        public void DesenhaTrajetoriaSimplificada(Vector2D robo, Vector2D bola, int cont)
+        public void DesenhaTrajetoria(Vector2D robo, Vector2D bola, int cont)
         {
 
             //Campo campo = ambiente.Campo;
@@ -2292,39 +2247,51 @@ namespace Futebol.estrategias.estrategia1
             //saida.DesenharReta(robo, p3);
             //saida.DesenharReta(retaGol, posGol);
 
-            double kr = 100; // atenuacao da curva
-            double de = 50; // distancia minima de desvio
-            Vector2D ponto = robo.Sub(bola);
-            double theta = Math.Atan2(ponto.y, ponto.x);
-            double aux1 = 0, aux2 = 0;
+            //double kr = 100; // atenuacao da curva
+            //double de = 50; // distancia minima de desvio
+            //Vector2D ponto = robo.Sub(bola);
+            //double theta = Math.Atan2(ponto.y, ponto.x);
+
+
+            Campo campo = ambiente.Campo;
+            ControleJogo.Lado lado = ambiente.Time.lado;
+            Limites gol = lado == ControleJogo.Lado.Direito ? campo.gol_esquerdo : campo.gol_direito;
+
+            double kr = 200; // atenuacao da curva
+            double de = 50;  // diametro do desvio
+
+            double angulo = Math.Atan2(bola.y - gol.centro.y, bola.x - gol.centro.x);
+
+            Vector2D roboRotacionado = RotacionaEixo(angulo, robo);
+            Vector2D bolaRotacionada = RotacionaEixo(angulo, bola);
+
+            Vector2D delta = roboRotacionado.Sub(bolaRotacionada);
+            double theta = Math.Atan2(delta.y, delta.x);
+
+            double angle = PhiTUF(theta, delta, kr, de);
+            double aux2 = 0;
             double distanciabola = 500;
-            bool b = false;
-            if (ponto.y == 0)
+            if (delta.y == 0)
             {
                 if (robo.x < bola.x)
                 {
                     aux2 = -10;
-                    
                 }
             }
 
-            double angle = PhiTUF(theta, ponto, kr, de);
+            Vector2D soma = new Vector2D(Math.Cos(angle), Math.Sin(angle));
+            Vector2D somaRotacionada = RotacionaEixo(-angulo, soma);
+
+            //double angle = PhiTUF(theta, delta, kr, de);
             Vector2D p3;
-            if (b)
-            {
-                p3 = new Vector2D(distanciabola, robo.y + (Math.Sin(angle) + aux2));
-            }
-            else
-            {
-                p3 = new Vector2D(robo.x + (Math.Cos(angle)), robo.y + (Math.Sin(angle) + aux2));
-            }
+            p3 = new Vector2D(robo.x + somaRotacionada.x, robo.y + somaRotacionada.y + aux2);
 
             saida.DesenharVetores(robo, p3);
 
             if (p3.Distance(bola) > 10 && cont != 0)
             {
                 cont--;
-                DesenhaTrajetoriaSimplificada(p3, bola, cont);
+                DesenhaTrajetoria(p3, bola, cont);
             }
         }
 
@@ -2368,8 +2335,8 @@ namespace Futebol.estrategias.estrategia1
             //Atrativa
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-            DesenhaTrajetoria(robo.posicao, bola.posicao);
-            DesenhaTrajetoriaSimplificada(robo.posicao, bola.posicao, 1000);
+            DesenhaCampo(robo.posicao, bola.posicao);
+            DesenhaTrajetoria(robo.posicao, bola.posicao, 1000);
 
             //saida.DesenharReta(robo.posicao, prox);
 
@@ -2455,17 +2422,12 @@ namespace Futebol.estrategias.estrategia1
 
             if (!cw) return theta + aux;
 
-            else    return theta - aux;
+            else return theta - aux;
         }
 
         public Vector2D NH(double theta)
         {
             return new Vector2D(Math.Cos(theta), Math.Sin(theta));
-        }
-
-        public Vector2D NHR(double theta)
-        {
-            return new Vector2D(Math.Sin(theta), Math.Cos(theta));
         }
 
         public double PhiR(Vector2D robo, Tuple<Vector2D, bool>[] obstaculos)
@@ -2490,6 +2452,10 @@ namespace Futebol.estrategias.estrategia1
             //phi = Math.Atan2(sen / aux, cos / aux);
 
             return phi;
+        }
+        public double PhiAUF(Vector2D robo, Tuple<Vector2D, bool>[] obstaculos)
+        {
+            return PhiR(robo, obstaculos);
         }
 
         public double PhiTUF(double theta, Vector2D ponto, double kr, double de)
@@ -2532,10 +2498,7 @@ namespace Futebol.estrategias.estrategia1
 
         }
 
-        public double PhiAUF(Vector2D robo, Tuple<Vector2D, bool>[] obstaculos)
-        {
-            return PhiR(robo, obstaculos);
-        }
+
         public double PhiComposto(RoboE1 robo, Vector2D bola)
         {
             //d_min = 3.48 # cm
@@ -2661,7 +2624,11 @@ namespace Futebol.estrategias.estrategia1
             Tuple.Create(ambiente.Time.Robo[1].posicao, true),
             Tuple.Create(ambiente.Time.Robo[2].posicao, false),
             };
-                return obstaculos;
+            return obstaculos;
+        }
+        public Vector2D RotacionaEixo(double angulo, Vector2D ponto)
+        {
+            return new Vector2D(ponto.x * Math.Cos(angulo) + ponto.y * Math.Sin(angulo), -ponto.x * Math.Sin(angulo) + ponto.y * Math.Cos(angulo));
         }
     }
 }

@@ -2059,7 +2059,7 @@ namespace Futebol.estrategias.estrategia1
                         }
                 */
 
-        public void DesenhaCampo(Vector2D robo, Vector2D bola)
+        public void DesenhaCampo(RoboE1 robo, Vector2D bola, double passo, double fr)
         {
 
             Campo campo = ambiente.Campo;
@@ -2077,34 +2077,42 @@ namespace Futebol.estrategias.estrategia1
                     ponto2 = ponto1.Clone();
                     ponto2.x += k;
                     ponto2.y += j;
-                    Tuple<Vector2D, bool>[] obstaculos = DefineObstaculos(ponto2);
-                    Vector2D prox = PhiR(ponto2, obstaculos).Mult(20);
+                    //Tuple<Vector2D, bool>[] obstaculos = DefineObstaculos(ponto2);
+                    //Vector2D prox = PhiR(ponto2, obstaculos).Mult(20);
                     //Vector2D prox = new Vector2D(Math.Cos(teta), Math.Sin(teta));
 
                     //Vector2D prox = AtrativaSimples(ponto2, bola, 0.5);
 
-                    saida.DesenharReta(ponto2, ponto2.Add(prox));
+                    Vector2D prox = UnivectorField(ponto2, bola, 10, 80, passo);
+                    Vector2D repulsiva = PhiR2(ponto2).Mult(fr);
+
+                    //Tuple<Vector2D, bool>[] obstaculos = DefineObstaculos(bola);
+
+                    //Vector2D prox = PhiR2(ponto2, obstaculos, 50).Mult(20);
+
+                    saida.DesenharReta(ponto2, prox.Add(repulsiva));
                 }
             }
         }
 
-        public void DesenhaTrajetoria(Vector2D robo, Vector2D bola, int cont)
+        public void DesenhaTrajetoria(Vector2D robo, Vector2D bola, double passo, double fr, int cont)
         {
 
             Vector2D p3 = bola.Clone();
 
-            double passo = 1;
             double raioDesvio = 50;
             double dx = robo.x - bola.x;
 
-            if (dx < raioDesvio)      tipoTrajetoriaAtacante = 1;
+            //if (dx < raioDesvio)      tipoTrajetoriaAtacante = 1;
             //else if (dx > raioDesvio + 5 * passo) tipoTrajetoriaAtacante = 2;
 
             //tipoTrajetoriaAtacante = 1;
 
             if (tipoTrajetoriaAtacante == 1)
             {
-                p3 = UnivectorField(robo, bola, 40, 70, passo);
+                Vector2D prox = UnivectorField(robo, bola, 10, 80, passo);
+                Vector2D repulsiva = PhiR2(robo).Mult(fr);
+                p3 = prox.Add(repulsiva);
             }
             else if (tipoTrajetoriaAtacante == 2)
             {
@@ -2115,7 +2123,7 @@ namespace Futebol.estrategias.estrategia1
             if ((p3).Distance(bola) > 10 && cont != 0)
             {
                 cont--;
-                DesenhaTrajetoria((p3), bola, cont);
+                DesenhaTrajetoria((p3), bola, passo, fr, cont);
                 saida.DesenharVetores(robo, (p3));
             }
             else
@@ -2163,10 +2171,15 @@ namespace Futebol.estrategias.estrategia1
             //Atrativa
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-            DesenhaCampo(robo.posicao, bola.posicao);
-            DesenhaTrajetoria(robo.posicao, bola.posicao, 1000);
-            
+            double passo = 10;
+            double fr = 300;
+            DesenhaCampo(robo, bola.posicao, passo, fr);
+            DesenhaTrajetoria(robo.posicao, bola.posicao, passo, fr, 1000);
 
+            Vector2D prox = UnivectorField(robo.posicao, bola.posicao, 50, 8, 10);
+            Vector2D repulsiva = PhiR2(robo.posicao);
+
+            robo.PosicionaAntiga(prox, 50, 40, PI / 4);
 
 
             //saida.DesenharReta(robo.posicao, prox);
@@ -2218,29 +2231,30 @@ namespace Futebol.estrategias.estrategia1
             return phi;
         }
 
-        public Vector2D PhiR(Vector2D robo, Tuple<Vector2D, bool>[] obstaculos)
+        public Vector2D PhiR2(Vector2D ponto)
         {
-            //Vector2D[] obstaculos = new Vector2D[2] {bola, robo};
-            double dx, dy, di, cosi, seni, cos = 0, sen = 0, angle;
+            double dx ,dy, di, angulo;
+
+            Tuple<Vector2D, bool>[] obstaculos = DefineObstaculos();
+
+            Vector2D soma = new Vector2D(0, 0);
 
             for (int i = 0; i < obstaculos.Length; i++)
             {
                 if (obstaculos[i].Item2) // se ele estever marcado como obstaculo
                 {
-                    dx = robo.x - obstaculos[i].Item1.x;
-                    dy = robo.y - obstaculos[i].Item1.y;
-                    di = Math.Sqrt(Math.Pow(dx, 2) + Math.Pow(dy, 2));
-                    angle = Math.Atan2(dy, dx);
+                    dx = ponto.x - obstaculos[i].Item1.x;
+                    dy = ponto.y - obstaculos[i].Item1.y;
 
-                    cosi += Math.Cos()
+                    di = Math.Sqrt(Math.Pow(dx, 2) + Math.Pow(dy, 2));
+
+                    angulo = Math.Atan2(dy, dx);
+
+                    soma.x += Math.Cos(angulo)  / di;
+                    soma.y += Math.Sin(angulo)  / di;
                 }
             }
-
-            double aux = Math.Sqrt(Math.Pow(cos, 2) + Math.Pow(sen, 2));
-            //aux = 1;
-            Vector2D phi = new Vector2D(cos / aux, sen / aux);
-
-            return phi;
+            return soma;
         }
 
         public double PhiAUF(Vector2D robo, Tuple<Vector2D, bool>[] obstaculos)
@@ -2286,7 +2300,7 @@ namespace Futebol.estrategias.estrategia1
 
             double theta = Math.Atan2(robo.posicao.y - bola.y, robo.posicao.y - bola.y);
 
-            Tuple<Vector2D, bool>[] obstaculos = DefineObstaculos(robo, bola);
+            Tuple<Vector2D, bool>[] obstaculos = DefineObstaculos();
 
             double r = robo.posicao.Distance(ObstaculoMaisProximo(robo, obstaculos)); // r = 0 caso não exista obstaculos
 
@@ -2356,18 +2370,19 @@ namespace Futebol.estrategias.estrategia1
             return maisProximo; // retorna a posicao do robo caso não tenha nenhum obstaculo
         }
 
-        public Tuple<Vector2D, bool>[] DefineObstaculos(RoboE1 robo, Vector2D bola)
+        public Tuple<Vector2D, bool>[] DefineObstaculos()
         {
             //if(autoPosicionando)
+
             Tuple<Vector2D, bool>[] obstaculos =
             {
                 Tuple.Create(ambiente.Adversario.Robo[0].posicao, true),
                 Tuple.Create(ambiente.Adversario.Robo[1].posicao, true),
                 Tuple.Create(ambiente.Adversario.Robo[2].posicao, true),
-                Tuple.Create(bola, false),
+                Tuple.Create(ambiente.Bola.posicao, false),
                 Tuple.Create(ambiente.Time.Robo[0].posicao, true),
                 Tuple.Create(ambiente.Time.Robo[1].posicao, true),
-                Tuple.Create(ambiente.Time.Robo[2].posicao, true),
+                Tuple.Create(ambiente.Time.Robo[2].posicao, false),
             };
             //if (robo.papel == RoboE1.Papel.Atacante)
             //{
@@ -2409,6 +2424,53 @@ namespace Futebol.estrategias.estrategia1
             return new Vector2D(ponto.x * Math.Cos(angulo) + ponto.y * Math.Sin(angulo), -ponto.x * Math.Sin(angulo) + ponto.y * Math.Cos(angulo));
         }
 
+        public Vector2D UnivectorFieldD(RoboE1 robo, Vector2D bola, double kr, double de, double passo, bool desvia = true)
+        {
+            Campo campo = ambiente.Campo;
+            Lado lado = ambiente.Time.lado;
+            Vector2D gol = new Vector2D();
+            if (lado == Lado.Direito)
+            {
+                gol.x = campo.gol_esquerdo.ladoEsquerdo - ConfiguracoesE1.DESLOCAMENTO_GOL;
+                gol.y = campo.gol_esquerdo.centro.y;
+            }
+            else
+            {
+                gol.x = campo.gol_direito.ladoDireito + ConfiguracoesE1.DESLOCAMENTO_GOL;
+                gol.y = campo.gol_direito.centro.y;
+            }
+
+            double angulo = Math.Atan2(bola.y - gol.y, bola.x - gol.x); //angulo entre a bola e o gol
+
+            Vector2D roboRotacionado = RotacionaEixo(angulo, robo.posicao); //coordenadas do robo no eixo rotacionado
+            Vector2D bolaRotacionada = RotacionaEixo(angulo, bola); //coordenadas da bola no eixo rotacionado
+
+            Vector2D delta = roboRotacionado.Sub(bolaRotacionada);  // delta x e y entre o robo e a bola (rotacionados)
+
+            double alpha = Math.Atan2(delta.y, delta.x);            // angulo entre o robo e a bola
+
+            double teta = PhiTUF(alpha, delta, kr, de, passo); // angulo entre a possicao do robo e seu proximo passo
+
+            Vector2D univector =  new Vector2D(Math.Cos(teta), Math.Sin(teta));
+            univector = RotacionaEixo(-angulo, univector); // rotacionando de volta para as coordenadas originais da entrada
+
+            if (passo > 0)
+            {
+                --passo;
+                return UnivectorField(robo.posicao.Add(univector), bola, kr, de, passo);
+            }
+            else
+            {
+                //    Tuple<Vector2D, bool>[] obstaculos = DefineObstaculos(robo);
+                //    teta = PhiR(robo, obstaculos);
+                //    Vector2D repulsiva = new Vector2D(Math.Cos(teta), Math.Sin(teta));
+                //    return robo.Add(univector).Add(repulsiva);
+                Vector2D repulsiva = new Vector2D(0, 0);
+                if (desvia)
+                    repulsiva = PhiR2(robo.posicao).Mult(50);
+                return robo.posicao.Add(univector).Add(repulsiva);
+            }
+        }
         public Vector2D UnivectorField(Vector2D robo, Vector2D bola, double kr, double de, double passo)
         {
             Campo campo = ambiente.Campo;
@@ -2436,7 +2498,7 @@ namespace Futebol.estrategias.estrategia1
 
             double teta = PhiTUF(alpha, delta, kr, de, passo); // angulo entre a possicao do robo e seu proximo passo
 
-            Vector2D univector =  new Vector2D(Math.Cos(teta), Math.Sin(teta));
+            Vector2D univector = new Vector2D(Math.Cos(teta), Math.Sin(teta));
             univector = RotacionaEixo(-angulo, univector); // rotacionando de volta para as coordenadas originais da entrada
 
             if (passo > 0)

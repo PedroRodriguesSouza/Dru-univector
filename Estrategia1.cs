@@ -1249,14 +1249,14 @@ namespace Futebol.estrategias.estrategia1
                         AtacanteUnivector(ref time.Robo[iAtacante]);
                         Zagueiro(ref time.Robo[iZagueiro]);
                     }
-                    else if ((!robo1Atras && !robo2Atras))
-                    {
-                        iAtacante = 2;
-                        iZagueiro = 1;
+                    //else if ((!robo1Atras && !robo2Atras))
+                    //{
+                    //    iAtacante = 2;
+                    //    iZagueiro = 1;
 
-                        Zagueiro(ref time.Robo[iAtacante]);
-                        Zagueiro(ref time.Robo[iZagueiro]);
-                    }
+                    //    Zagueiro(ref time.Robo[iAtacante]);
+                    //    Zagueiro(ref time.Robo[iZagueiro]);
+                    //}
                     else if (robo1Atras)
                     {
                         iAtacante = 1;
@@ -2086,8 +2086,7 @@ namespace Futebol.estrategias.estrategia1
             double raioDesvio = 50;
             Vector2D prox = (UnivectorField(robo, referencia, bola, kr, de, passo)).Mult(1);
             Vector2D repulsiva = new Vector2D(0, 0);
-            //if(robo.Distance(bola) > raioDesvio + 10)
-            repulsiva = PhiR2(robo, raioDesvio).Mult(1);
+            //repulsiva = PhiR2(robo, raioDesvio).Mult(1);
             p3 = prox.Add(repulsiva);
 
             if ((p3).Distance(bola) > 10 && cont != 0)
@@ -2103,11 +2102,6 @@ namespace Futebol.estrategias.estrategia1
         #region UnivectorField
         public void AtacanteUnivector(ref RoboE1 robo)
         {
-            //robo.dadosPID.velLinearMax = robo.medicaoPID.velLinearMax = ConfiguracoesE1.VEL_LINEAR_MAX_ATACANTE;
-            //robo.dadosPID.velAngularMaxima = robo.medicaoPID.velAngularMaxima = ConfiguracoesE1.VEL_ANGULAR_MAX_ATACANTE;
-            //robo.dadosPID.KP = ConfiguracoesE1.KP_ATACANTE;
-            //robo.dadosPID.KI = ConfiguracoesE1.KI_ATACANTE;
-
             BolaE1 bola = ambiente.Bola;
             Campo campo = ambiente.Campo;
             Lado lado = ambiente.Time.lado;
@@ -2121,27 +2115,31 @@ namespace Futebol.estrategias.estrategia1
             else
                 posGol.x = campo.gol_direito.ladoDireito + ConfiguracoesE1.DESLOCAMENTO_GOL;
             
-
-
             double kr = 10;
             double de = 80;
             double passo = 10;
             double fr = 300;
+            double tolerancia = 50;
 
-            DesenhaCampo     (posRobo, posGol, posBola, kr, de, passo, fr);
+            if (LateralDireito(posBola, tolerancia))
+                posGol = posGol;
+            if (LateralEsquerdo(posBola, tolerancia))
+                posGol = posGol;
+            if (LateralInferior(posBola, tolerancia))
+                posGol.y = campo.limites.ladoInferior + tolerancia;
+            if (LateralSuperior(posBola, tolerancia))
+                posGol.y = campo.limites.ladoSuperior - tolerancia;
+
+
+            DesenhaCampo(posRobo, posGol, posBola, kr, de, passo, fr);
             DesenhaTrajetoria(posRobo, posGol, posBola, kr, de, passo, fr, 500);
-
-            bool teste = LateralDireito(posBola, 100);
-            teste = LateralEsquerdo(posBola, 100);
-            teste = LateralInferior(posBola, 100);
-            teste = LateralSuperior(posBola, 100);
 
             Vector2D prox = UnivectorField(posRobo, posGol, posBola, kr, de, passo);
             Vector2D repulsiva = PhiR2(robo.posicao, 80);
 
-            robo.PosicionaAntiga(prox, 50, 40, PI/4);
-
+            robo.PosicionaAntiga(prox, 50, 10, PI/4);
         }
+
         public void ZagueiroUnivector(ref RoboE1 robo)
         {
 
@@ -2649,26 +2647,22 @@ namespace Futebol.estrategias.estrategia1
 
         public bool LateralSuperior(Vector2D ponto, double deslocamento)
         {
-            Lado lado = ambiente.Time.lado;
             Limites campo = ambiente.Campo.limites;
             return (ponto.y > campo.ladoSuperior - deslocamento) ? true : false;
         }
         public bool LateralInferior(Vector2D ponto, double deslocamento)
         {
-            Lado lado = ambiente.Time.lado;
             Limites campo = ambiente.Campo.limites;
             return (ponto.y < campo.ladoInferior + deslocamento);
         }
 
         public bool LateralEsquerdo(Vector2D ponto, double deslocamento)
         {
-            Lado lado = ambiente.Time.lado;
             Limites campo = ambiente.Campo.limites;
             return (ponto.x < campo.ladoEsquerdo + deslocamento);
         }
         public bool LateralDireito(Vector2D ponto, double deslocamento)
         {
-            Lado lado = ambiente.Time.lado;
             Limites campo = ambiente.Campo.limites;
             return (ponto.x > campo.ladoDireito - deslocamento);
         }

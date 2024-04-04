@@ -95,13 +95,26 @@ namespace Futebol.estrategias.estrategia1
             if (ponto.x > campo.ladoDireito - tolerancia)
                 ponto.x = campo.ladoDireito - tolerancia;
         }
+        public bool AtrasDaBola(double xPonto, double xBola)
+        {
+
+            Campo campo = ambiente.Campo;
+            Lado lado = ambiente.Time.lado;
+            Limites limites = ambiente.Campo.limites;
+
+            return lado == ControleJogo.Lado.Direito ? xPonto < xBola : xPonto > xBola;
+
+            return false;
+
+        }
+
 
         public bool AtrasDaBola(int indiceRobo, ControleJogo.Lado lado, double posicaoXBola, Limites limitesCampo)
         {
             RoboE1 robo = ambiente.Time.Robo[indiceRobo];
             if (lado == ControleJogo.Lado.Direito)
             {
-                if (robo.posicao.x >= posicaoXBola)
+                if (robo.posicao.x > posicaoXBola)
                 {
                     /* if (iZagueiro == indiceRobo && robo.posicao.x < posicaoXBola + ConfiguracoesE1.ATACANTE_TOLERANCIA_DEFINE)
                      {
@@ -113,7 +126,7 @@ namespace Futebol.estrategias.estrategia1
             }
             else
             {
-                if (robo.posicao.x <= posicaoXBola)
+                if (robo.posicao.x < posicaoXBola)
                 {
                     /*if (iZagueiro == indiceRobo && robo.posicao.x > posicaoXBola - ConfiguracoesE1.ATACANTE_TOLERANCIA_DEFINE)
                     {
@@ -2038,7 +2051,7 @@ namespace Futebol.estrategias.estrategia1
                         }
                 */
 
-        public void DesenhaCampo(Vector2D robo, Vector2D gol, Vector2D bola, double kr, double de, double passo, double fr)
+        public void DesenhaCampo(Vector2D robo, Vector2D gol, Vector2D bola, double kr, double de, double passo, double fr, bool desvia, double raioDesvio, double g)
         {
 
             Campo campo = ambiente.Campo;
@@ -2062,8 +2075,10 @@ namespace Futebol.estrategias.estrategia1
 
                     //Vector2D prox = AtrativaSimples(ponto2, bola, 0.5);
                     Lado lado = ambiente.Time.lado;
-
-                    Vector2D prox = UnivectorField(ponto2, gol, bola, kr, de, passo).Mult(1);
+                    desvia = false;
+                    if (AtrasDaBola(ponto2.x, bola.x))
+                        desvia = true;
+                    Vector2D prox = UnivectorField(ponto2, gol, bola, kr, de, passo, desvia, raioDesvio, g);
 
                     Vector2D repulsiva = new Vector2D(0, 0);
                     //PhiR2(ponto2, 80).Mult(10);
@@ -2077,14 +2092,16 @@ namespace Futebol.estrategias.estrategia1
             }
         }
 
-        public void DesenhaTrajetoria(Vector2D robo, Vector2D referencia, Vector2D bola, double kr, double de, double passo, double fr, int cont)
+        public void DesenhaTrajetoria(Vector2D robo, Vector2D referencia, Vector2D bola, double kr, double de, double passo, double fr, int cont, bool desvia, double raioDesvio, double g)
         {
             Lado lado = ambiente.Time.lado;
             Limites limites = ambiente.Campo.limites;
             Vector2D p3;
 
-            double raioDesvio = 50;
-            Vector2D prox = (UnivectorField(robo, referencia, bola, kr, de, passo)).Mult(1);
+            desvia = false;
+            if (AtrasDaBola(robo.x, bola.x))
+                desvia = true;
+            Vector2D prox = UnivectorField(robo, referencia, bola, kr, de, passo, desvia, raioDesvio, g);
             Vector2D repulsiva = new Vector2D(0, 0);
             //repulsiva = PhiR2(robo, raioDesvio).Mult(1);
             p3 = prox.Add(repulsiva);
@@ -2092,7 +2109,7 @@ namespace Futebol.estrategias.estrategia1
             if ((p3).Distance(bola) > 10 && cont != 0)
             {
                 cont--;
-                DesenhaTrajetoria(p3, referencia, bola, kr, de, passo, fr, cont);
+                DesenhaTrajetoria(p3, referencia, bola, kr, de, passo, fr, cont, desvia, raioDesvio, g);
                 saida.DesenharVetores(robo, (p3));
             }
             else
@@ -2105,6 +2122,7 @@ namespace Futebol.estrategias.estrategia1
             BolaE1 bola = ambiente.Bola;
             Campo campo = ambiente.Campo;
             Lado lado = ambiente.Time.lado;
+            Limites limites = ambiente.Campo.limites;
 
             Vector2D posRobo = robo.posicao;
             Vector2D posBola = bola.posicao;
@@ -2130,224 +2148,21 @@ namespace Futebol.estrategias.estrategia1
             if (LateralSuperior(posBola, tolerancia))
                 posGol.y = campo.limites.ladoSuperior - tolerancia;
 
+            bool desvia = false;
+            if (AtrasDaBola(posRobo.x, posBola.x))
+                desvia = true;
+            //desvia = false;
+            double raioDesvio = 40;
+            double g = 20;
 
-            DesenhaCampo(posRobo, posGol, posBola, kr, de, passo, fr);
-            DesenhaTrajetoria(posRobo, posGol, posBola, kr, de, passo, fr, 500);
+            DesenhaCampo(posRobo, posGol, posBola, kr, de, passo, fr, desvia, raioDesvio, g);
+            DesenhaTrajetoria(posRobo, posGol, posBola, kr, de, passo, fr, 500, desvia, raioDesvio, g);
 
-            Vector2D prox = UnivectorField(posRobo, posGol, posBola, kr, de, passo);
-            Vector2D repulsiva = PhiR2(robo.posicao, 80);
+            Vector2D prox = UnivectorField(posRobo, posGol, posBola, kr, de, passo, desvia, raioDesvio, g);
+            //Vector2D repulsiva = PhiR2(robo.posicao, 80);
 
             robo.PosicionaAntiga(prox, 50, 10, PI/4);
         }
-
-        public void ZagueiroUnivector(ref RoboE1 robo)
-        {
-
-            BolaE1 bola = ambiente.Bola;
-            Campo campo = ambiente.Campo;
-            ControleJogo.Lado lado = ambiente.Time.lado;
-
-            Vector2D destino = Vector2D.Zero();
-            Vector2D posGol = Vector2D.Zero();
-
-            double distBola = bola.posicao.Distance(robo.posicao);
-
-            Vector2D proximaPosicaoBola = bola.ProximaPosicao(ConfiguracoesE1.ZAGUEIRO_COEFICIENTE_PREVISAO_BOLA);
-
-            if (ConfiguracoesE1.DESENHAR_PONTOS)
-                saida.DesenharPrevisaoBola(ref bola, ConfiguracoesE1.ZAGUEIRO_COEFICIENTE_PREVISAO_BOLA);
-
-            Vector2D golAdversario = Vector2D.Zero();
-
-            if (lado == ControleJogo.Lado.Esquerdo)
-            {
-                golAdversario.x = campo.gol_direito.centro.x + ConfiguracoesE1.DESLOCAMENTO_GOL;
-                golAdversario.y = campo.gol_direito.centro.y;
-            }
-            else
-            {
-                golAdversario.x = campo.gol_esquerdo.centro.x - ConfiguracoesE1.DESLOCAMENTO_GOL;
-                golAdversario.y = campo.gol_esquerdo.centro.y;
-            }
-
-
-            //Define o lado do campo à defender e a posição em x
-            if (lado == ControleJogo.Lado.Direito)
-            {
-                posGol.x = campo.gol_direito.ladoDireito + ConfiguracoesE1.DESLOCAMENTO_GOL;
-                posGol.y = campo.gol_direito.centro.y;
-                destino.x = campo.area_goleiro_direita.ladoEsquerdo - ConfiguracoesE1.ZAGUEIRO_DESLOCAMENTO_X;
-            }
-            else
-            {
-                posGol.x = campo.gol_esquerdo.ladoEsquerdo - ConfiguracoesE1.DESLOCAMENTO_GOL;
-                posGol.y = campo.gol_esquerdo.centro.y;
-                destino.x = campo.area_goleiro_esquerda.ladoDireito + ConfiguracoesE1.ZAGUEIRO_DESLOCAMENTO_X;
-            }
-
-            //Calcula a posição em y
-            if (posGol.x != bola.posicao.x)
-            {
-                double a = (bola.posicao.y - posGol.y) / (bola.posicao.x - posGol.x);
-                double b = posGol.y - a * posGol.x;
-                destino.y = a * destino.x + b;
-            }
-            else
-                destino.y = posGol.y;
-
-            double deslocamentoY = ConfiguracoesE1.ZAGUEIRO_DESLOCAMENTO_Y;
-
-            if (lado == Lado.Direito && bola.posicao.x > campo.area_goleiro_direita.ladoEsquerdo - ConfiguracoesE1.ZAGUEIRO_DESLOCAMENTO_X)
-            {
-                deslocamentoY = campo.limites.ladoSuperior - campo.area_goleiro_direita.ladoSuperior;
-
-            }
-            else if (lado == Lado.Esquerdo && bola.posicao.x < campo.area_goleiro_esquerda.ladoDireito + ConfiguracoesE1.ZAGUEIRO_DESLOCAMENTO_X)
-            {
-                deslocamentoY = campo.limites.ladoSuperior - campo.area_goleiro_direita.ladoSuperior;
-            }
-
-            //var bola_prev = bola.ProximaPosicao(ConfiguracoesE1.ZAGUEIRO_COEFICIENTE_PREVISAO_BOLA);
-            //destino.y = bola_prev.y;
-            //Define um valor máximo e mínimo para y
-            if (destino.y > campo.limites.ladoSuperior - ConfiguracoesE1.ZAGUEIRO_DESLOCAMENTO_Y) destino.y = campo.limites.ladoSuperior - deslocamentoY;
-            if (destino.y < campo.limites.ladoInferior + ConfiguracoesE1.ZAGUEIRO_DESLOCAMENTO_Y) destino.y = campo.limites.ladoInferior + deslocamentoY;
-
-
-            /////////////////////////////////////////////////////////////////////////////////////////
-            saida.DesenharReta(Vector2D.Create(destino.x, Configuracoes.YMAX - campo.limites.ladoSuperior), Vector2D.Create(destino.x, Configuracoes.YMAX - campo.limites.ladoInferior));
-            saida.DesenharReta(Vector2D.Create(destino.x + ConfiguracoesE1.ZAGUEIRO_TOLERANCIA_POSICAO_X, Configuracoes.YMAX - campo.limites.ladoSuperior), Vector2D.Create(destino.x + ConfiguracoesE1.ZAGUEIRO_TOLERANCIA_POSICAO_X, Configuracoes.YMAX - campo.limites.ladoInferior));
-            saida.DesenharReta(Vector2D.Create(destino.x - ConfiguracoesE1.ZAGUEIRO_TOLERANCIA_POSICAO_X, Configuracoes.YMAX - campo.limites.ladoSuperior), Vector2D.Create(destino.x - ConfiguracoesE1.ZAGUEIRO_TOLERANCIA_POSICAO_X, Configuracoes.YMAX - campo.limites.ladoInferior));
-
-
-            if (!AtrasDaBola(iZagueiro, lado, bola.posicao.x, campo.limites))
-            {
-                Vector2D pontoControle = new Vector2D(destino.x, destino.y < campo.limites.centro.y ?
-                    campo.limites.ladoSuperior - (campo.limites.ladoSuperior - campo.limites.centro.y) / 2.0 :
-                    campo.limites.ladoInferior + (campo.limites.centro.y - campo.limites.ladoInferior) / 2.0);
-
-                //pontoControle = proximaPosicaoBola.Sub(golAdversario.Sub(proximaPosicaoBola).Unitary().Mult(robo.posicao.Distance(proximaPosicaoBola) * ConfiguracoesE1.COEFICIENTE_PONTO_CONTROLE));
-
-                AjustaPontoControleCampo(ref pontoControle);
-
-
-                Vector2D[] pontos = CurvaBezierPotencial(robo.posicao, pontoControle, destino, bola.posicao, ambiente.Time.Robo[iAtacante].posicao);
-                Vector2D proximoPonto = pontos[1];
-
-
-                if (iZagueiro == 1)
-                    robo.PosicionaRotacionaPID_Henrique(iZagueiro, proximoPonto, 500,
-                        ConfiguracoesE1.ZAGUEIRO_1_F_LINEAR_KP, ConfiguracoesE1.ZAGUEIRO_1_F_LINEAR_KI, ConfiguracoesE1.ZAGUEIRO_1_F_LINEAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_1_F_ANGULAR_KP, ConfiguracoesE1.ZAGUEIRO_1_F_ANGULAR_KI, ConfiguracoesE1.ZAGUEIRO_1_F_ANGULAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_1_T_LINEAR_KP, ConfiguracoesE1.ZAGUEIRO_1_T_LINEAR_KI, ConfiguracoesE1.ZAGUEIRO_1_T_LINEAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_1_T_ANGULAR_KP, ConfiguracoesE1.ZAGUEIRO_1_T_ANGULAR_KI, ConfiguracoesE1.ZAGUEIRO_1_T_ANGULAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_1_ROTACIONA_ANGULAR_FORALINHA_KP, ConfiguracoesE1.ZAGUEIRO_1_ROTACIONA_ANGULAR_FORALINHA_KI, ConfiguracoesE1.ZAGUEIRO_1_ROTACIONA_ANGULAR_FORALINHA_KD,
-                        ConfiguracoesE1.ZAGUEIRO_VEL_LINEAR_MAX, ConfiguracoesE1.ZAGUEIRO_VEL_ANGULAR_MAX, ConfiguracoesE1.ZAGUEIRO_1_F_FATOR_VELOCIDADE, ConfiguracoesE1.ZAGUEIRO_1_T_FATOR_VELOCIDADE);
-                else //if(iZagueiro == 2)
-                    robo.PosicionaRotacionaPID_Henrique(iZagueiro, proximoPonto, 500,
-                        ConfiguracoesE1.ZAGUEIRO_2_F_LINEAR_KP, ConfiguracoesE1.ZAGUEIRO_2_F_LINEAR_KI, ConfiguracoesE1.ZAGUEIRO_2_F_LINEAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_2_F_ANGULAR_KP, ConfiguracoesE1.ZAGUEIRO_2_F_ANGULAR_KI, ConfiguracoesE1.ZAGUEIRO_2_F_ANGULAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_2_T_LINEAR_KP, ConfiguracoesE1.ZAGUEIRO_2_T_LINEAR_KI, ConfiguracoesE1.ZAGUEIRO_2_T_LINEAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_2_T_ANGULAR_KP, ConfiguracoesE1.ZAGUEIRO_2_T_ANGULAR_KI, ConfiguracoesE1.ZAGUEIRO_2_T_ANGULAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_2_ROTACIONA_ANGULAR_FORALINHA_KP, ConfiguracoesE1.ZAGUEIRO_2_ROTACIONA_ANGULAR_FORALINHA_KI, ConfiguracoesE1.ZAGUEIRO_2_ROTACIONA_ANGULAR_FORALINHA_KD,
-                        ConfiguracoesE1.ZAGUEIRO_VEL_LINEAR_MAX, ConfiguracoesE1.ZAGUEIRO_VEL_ANGULAR_MAX, ConfiguracoesE1.ZAGUEIRO_2_F_FATOR_VELOCIDADE, ConfiguracoesE1.ZAGUEIRO_2_T_FATOR_VELOCIDADE);
-
-
-
-
-                //desenhar curva de belzier
-                if (ConfiguracoesE1.DESENHAR_PONTOS)
-                    saida.DesenharCurvaDelzier(pontos, pontoControle);
-                saida.DesenharDestinoZagueiro(pontoControle);
-
-                return;
-            }
-
-
-            //Envia valor de posição para a função de posicionamento
-            //Caso esteja muito proximo do ponto ele se mantem na posição atual
-            //Caso contrario ele tenta se posicionar no objetivo
-            if (ConfiguracoesE1.DESENHAR_PONTOS)
-            {
-                saida.DesenharDestinoZagueiro(destino);
-            }
-            if (robo.posicao.Distance(destino) < ConfiguracoesE1.ZAGUEIRO_TOLERANCIA_PONTO)
-            {
-                robo.Parar();
-                return;
-            }
-            else
-            {
-                if (DentroArea(destino))
-                {
-                    double distSup, distInf, distX;
-
-                    if (lado == ControleJogo.Lado.Direito)
-                    {
-                        distSup = campo.area_goleiro_direita.ladoSuperior - destino.y;
-                        distInf = destino.y - campo.area_goleiro_direita.ladoInferior;
-                        distX = destino.x - campo.area_goleiro_direita.ladoEsquerdo;
-
-                        if (distSup < distInf && distSup < distX)
-                            destino.y = campo.area_goleiro_direita.ladoSuperior + ConfiguracoesE1.TOLERANCIA_CAMPO;
-
-                        else if (distInf < distSup && distInf < distX)
-                            destino.y = campo.area_goleiro_direita.ladoInferior - ConfiguracoesE1.TOLERANCIA_CAMPO;
-
-                        else
-                            destino.x = campo.area_goleiro_direita.ladoEsquerdo - ConfiguracoesE1.TOLERANCIA_CAMPO;
-                    }
-                    else
-                    {
-                        distSup = campo.area_goleiro_esquerda.ladoSuperior - destino.y;
-                        distInf = destino.y - campo.area_goleiro_esquerda.ladoInferior;
-                        distX = campo.area_goleiro_esquerda.ladoDireito - destino.x;
-
-                        if (distSup < distInf && distSup < distX)
-                            destino.y = campo.area_goleiro_esquerda.ladoSuperior + ConfiguracoesE1.TOLERANCIA_CAMPO;
-
-                        else if (distInf < distSup && distInf < distX)
-                            destino.y = campo.area_goleiro_esquerda.ladoInferior - ConfiguracoesE1.TOLERANCIA_CAMPO;
-
-                        else
-                            destino.x = campo.area_goleiro_esquerda.ladoDireito + ConfiguracoesE1.TOLERANCIA_CAMPO;
-                    }
-                }
-
-                //Verifica se o robo está dentro do gol
-                if (robo.posicao.x > campo.area_goleiro_direita.ladoDireito || robo.posicao.x < campo.area_goleiro_esquerda.ladoEsquerdo)
-                {
-                    if (destino.y > campo.gol_direito.ladoSuperior - ConfiguracoesE1.DISTANCIA_ENTRE_RODAS)
-                        destino.y = campo.gol_direito.ladoSuperior - ConfiguracoesE1.DISTANCIA_ENTRE_RODAS;
-                    else if (destino.y < campo.gol_direito.ladoInferior + ConfiguracoesE1.DISTANCIA_ENTRE_RODAS)
-                        destino.y = campo.gol_direito.ladoInferior + ConfiguracoesE1.DISTANCIA_ENTRE_RODAS;
-                }
-
-                SaturaForaCampo(ref destino, ConfiguracoesE1.TOLERANCIA_CAMPO);
-
-                //robo.PosicionaAntiga(destino, ConfiguracoesE1.VEL_LINEAR_MAX_ZAGUEIRO, ConfiguracoesE1.VEL_ANGULAR_MAX_ZAGUEIRO, ConfiguracoesE1.VEL_ANGULAR_MAX_ZAGUEIRO);
-                if (iZagueiro == 1)
-                    robo.PosicionaRotacionaPID_Henrique(iZagueiro, destino, 500,
-                        ConfiguracoesE1.ZAGUEIRO_1_F_LINEAR_KP, ConfiguracoesE1.ZAGUEIRO_1_F_LINEAR_KI, ConfiguracoesE1.ZAGUEIRO_1_F_LINEAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_1_F_ANGULAR_KP, ConfiguracoesE1.ZAGUEIRO_1_F_ANGULAR_KI, ConfiguracoesE1.ZAGUEIRO_1_F_ANGULAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_1_T_LINEAR_KP, ConfiguracoesE1.ZAGUEIRO_1_T_LINEAR_KI, ConfiguracoesE1.ZAGUEIRO_1_T_LINEAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_1_T_ANGULAR_KP, ConfiguracoesE1.ZAGUEIRO_1_T_ANGULAR_KI, ConfiguracoesE1.ZAGUEIRO_1_T_ANGULAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_1_ROTACIONA_ANGULAR_FORALINHA_KP, ConfiguracoesE1.ZAGUEIRO_1_ROTACIONA_ANGULAR_FORALINHA_KI, ConfiguracoesE1.ZAGUEIRO_1_ROTACIONA_ANGULAR_FORALINHA_KD,
-                        ConfiguracoesE1.ZAGUEIRO_VEL_LINEAR_MAX, ConfiguracoesE1.ZAGUEIRO_VEL_ANGULAR_MAX, ConfiguracoesE1.ZAGUEIRO_1_F_FATOR_VELOCIDADE, ConfiguracoesE1.ZAGUEIRO_1_T_FATOR_VELOCIDADE);
-                else //if(iZagueiro == 2)
-                    robo.PosicionaRotacionaPID_Henrique(iZagueiro, destino, 500,
-                        ConfiguracoesE1.ZAGUEIRO_2_F_LINEAR_KP, ConfiguracoesE1.ZAGUEIRO_2_F_LINEAR_KI, ConfiguracoesE1.ZAGUEIRO_2_F_LINEAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_2_F_ANGULAR_KP, ConfiguracoesE1.ZAGUEIRO_2_F_ANGULAR_KI, ConfiguracoesE1.ZAGUEIRO_2_F_ANGULAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_2_T_LINEAR_KP, ConfiguracoesE1.ZAGUEIRO_2_T_LINEAR_KI, ConfiguracoesE1.ZAGUEIRO_2_T_LINEAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_2_T_ANGULAR_KP, ConfiguracoesE1.ZAGUEIRO_2_T_ANGULAR_KI, ConfiguracoesE1.ZAGUEIRO_2_T_ANGULAR_KD,
-                        ConfiguracoesE1.ZAGUEIRO_2_ROTACIONA_ANGULAR_FORALINHA_KP, ConfiguracoesE1.ZAGUEIRO_2_ROTACIONA_ANGULAR_FORALINHA_KI, ConfiguracoesE1.ZAGUEIRO_2_ROTACIONA_ANGULAR_FORALINHA_KD,
-                        ConfiguracoesE1.ZAGUEIRO_VEL_LINEAR_MAX, ConfiguracoesE1.ZAGUEIRO_VEL_ANGULAR_MAX, ConfiguracoesE1.ZAGUEIRO_2_F_FATOR_VELOCIDADE, ConfiguracoesE1.ZAGUEIRO_2_T_FATOR_VELOCIDADE);
-
-            }
-
-
-        }
-
 
         public double PhiH(double theta, double p, double kr, double de, bool cw)
         {
@@ -2369,55 +2184,34 @@ namespace Futebol.estrategias.estrategia1
             return new Vector2D(Math.Cos(theta), Math.Sin(theta));
         }
 
-        public Vector2D PhiR(Vector2D robo, Tuple<Vector2D, bool>[] obstaculos)
+        public double PhiR(Vector2D robo, Vector2D obstaculo)
         {
-            //Vector2D[] obstaculos = new Vector2D[2] {bola, robo};
-            double di, cosi, seni, cos = 0, sen = 0;
-
-            for (int i = 0; i < obstaculos.Length; i++)
-            {
-                if (obstaculos[i].Item2) // se ele estever marcado como obstaculo
-                {
-                    di = Math.Sqrt(Math.Pow(robo.x - obstaculos[i].Item1.x, 2) + Math.Pow(robo.y - obstaculos[i].Item1.y, 2));
-                    //di = 1;
-                    cosi = (robo.x - obstaculos[i].Item1.x) / di;
-                    seni = (robo.y - obstaculos[i].Item1.y) / di;
-                    cos += cosi / di;
-                    sen += seni / di;
-                }
-            }
-
-            double aux = Math.Sqrt(Math.Pow(cos, 2) + Math.Pow(sen, 2));
-            //aux = 1;
-            Vector2D phi = new Vector2D(cos / aux, sen / aux);
-
-            return phi;
+            return Math.Atan2(robo.y - obstaculo.y, robo.x - obstaculo.x);
+            return Math.Atan2(obstaculo.y - robo.y, obstaculo.x - robo.x);
         }
 
-        public Vector2D PhiR2(Vector2D ponto, double raioDesvio)
+        public double PhiR2(Vector2D ponto, Tuple<Vector2D, bool>[] obstaculos, double raio)
         {
-            double dx, dy, di, angulo;
-
-            Tuple<Vector2D, bool>[] obstaculos = DefineObstaculos();
+            double dx, dy, di, angulo, somaa = 0;
+            int cont = 0;
 
             Vector2D soma = new Vector2D(0, 0);
 
             for (int i = 0; i < obstaculos.Length; i++)
             {
-                if (obstaculos[i].Item2 && obstaculos[i].Item1.Distance(ponto) <= raioDesvio) // se ele estever marcado como obstaculo
+                if (obstaculos[i].Item2) // se ele estever marcado como obstaculo
                 {
                     dx = ponto.x - obstaculos[i].Item1.x;
                     dy = ponto.y - obstaculos[i].Item1.y;
 
+                    angulo = Math.Atan2(dy, dx);
                     di = Math.Sqrt(Math.Pow(dx, 2) + Math.Pow(dy, 2));
 
-                    angulo = Math.Atan2(dy, dx);
-
-                    soma.x += Math.Cos(angulo) / (di * di);
-                    soma.y += Math.Sin(angulo) / (di * di);
+                    soma.x += Math.Cos(angulo) / di;
+                    soma.y += Math.Sin(angulo) / di;
                 }
             }
-            return soma.Unitary();
+            return Math.Atan2(soma.y, soma.x);
         }
 
         public double PhiAUF(Vector2D robo, Tuple<Vector2D, bool>[] obstaculos)
@@ -2454,68 +2248,10 @@ namespace Futebol.estrategias.estrategia1
                 return PhiH(theta, phr, kr, de, true);
         }
 
-
-        public double PhiComposto(RoboE1 robo, Vector2D bola, double kr, double de, double passo)
-        {
-
-            double dmin = 13.92;
-            double delta = 18.30;
-
-            double theta = Math.Atan2(robo.posicao.y - bola.y, robo.posicao.y - bola.y);
-
-            Tuple<Vector2D, bool>[] obstaculos = DefineObstaculos();
-
-            double r = robo.posicao.Distance(ObstaculoMaisProximo(robo, obstaculos)); // r = 0 caso não exista obstaculos
-
-            if (r == 0) return PhiTUF(theta, robo.posicao, kr, de);
-
-            else if (r <= dmin) return PhiAUF(robo.posicao, obstaculos);
-
-            else return PhiAUF(robo.posicao, obstaculos) * G(r - dmin, delta) + PhiTUF(theta, robo.posicao, kr, de) * (1 - G(r - dmin, delta));
-        }
-
-        public double PhiComposto(Vector2D robo, Vector2D bola, double passo) // para fins de teste
-        {
-            //d_min = 3.48 # cm
-            //delta = 4.57 # cm
-
-            double dmin = 0;
-            double delta = 20;
-
-            double kr = 100; // atenuacao da curva
-            double de = 100; // distancia minima de desvio
-
-            double theta = Math.Atan2(robo.y - bola.y, robo.y - bola.y);
-
-            Tuple<Vector2D, bool>[] obstaculos = DefineObstaculos(bola);
-
-            double r = robo.Distance(ObstaculoMaisProximo(robo, obstaculos)); // r = 0 caso não exista obstaculos
-
-            if (r == 0) return PhiTUF(theta, robo, kr, de);
-
-            else if (r <= dmin) return PhiAUF(robo, obstaculos);
-
-            else return PhiAUF(robo, obstaculos) * G(r - dmin, delta) + PhiTUF(theta, robo, kr, de) * (1 - G(r - dmin, delta));
-        }
-
         public double G(double r, double delta)
         {
-            return Math.Pow(Math.E, (r * r / (2 * delta * delta)));
-        }
-
-        public Vector2D ObstaculoMaisProximo(RoboE1 robo, Tuple<Vector2D, bool>[] obstaculos)
-        {
-            Vector2D maisProximo = new Vector2D(Double.PositiveInfinity, Double.PositiveInfinity);
-
-            for (int i = 0; i < obstaculos.Length; i++)
-                if (obstaculos[i].Item2 && robo.posicao.Distance(obstaculos[i].Item1) < robo.posicao.Distance(maisProximo))
-                    maisProximo = obstaculos[i].Item1;
-
-
-            if (maisProximo.x == Double.PositiveInfinity && maisProximo.y == Double.PositiveInfinity)
-                maisProximo = robo.posicao;
-
-            return maisProximo; // retorna a posicao do proprio robo caso não haja nenhum obstaculo
+            double aux = (r*r) / (2 * delta * delta);
+            return Math.Pow(Math.E, -aux);
         }
 
         public Vector2D ObstaculoMaisProximo(Vector2D robo, Tuple<Vector2D, bool>[] obstaculos) // para fins de teste
@@ -2528,9 +2264,9 @@ namespace Futebol.estrategias.estrategia1
                         maisProximo = obstaculos[i].Item1;
 
             if (maisProximo.x == Double.PositiveInfinity && maisProximo.y == Double.PositiveInfinity)
-                maisProximo = robo;
+                maisProximo = robo; // retorna a posicao do robo caso não tenha nenhum obstaculo
 
-            return maisProximo; // retorna a posicao do robo caso não tenha nenhum obstaculo
+            return maisProximo; 
         }
 
         public Tuple<Vector2D, bool>[] DefineObstaculos()
@@ -2543,8 +2279,8 @@ namespace Futebol.estrategias.estrategia1
                 Tuple.Create(ambiente.Adversario.Robo[1].posicao, true),
                 Tuple.Create(ambiente.Adversario.Robo[2].posicao, true),
                 Tuple.Create(ambiente.Bola.posicao, true),
-                Tuple.Create(ambiente.Time.Robo[0].posicao, true),
-                Tuple.Create(ambiente.Time.Robo[1].posicao, true),
+                Tuple.Create(ambiente.Time.Robo[0].posicao, false),
+                Tuple.Create(ambiente.Time.Robo[1].posicao, false),
                 Tuple.Create(ambiente.Time.Robo[2].posicao, false),
             };
             //if (robo.papel == RoboE1.Papel.Atacante)
@@ -2568,7 +2304,7 @@ namespace Futebol.estrategias.estrategia1
             //}
             return obstaculos;
         }
-        public Tuple<Vector2D, bool>[] DefineObstaculos(Vector2D bola) // para fins de teste
+        public Tuple<Vector2D, bool>[] DefineObstaculos(Vector2D bola)
         {
             Tuple<Vector2D, bool>[] obstaculos =
             {
@@ -2586,7 +2322,7 @@ namespace Futebol.estrategias.estrategia1
         {
             return new Vector2D(ponto.x * Math.Cos(angulo) + ponto.y * Math.Sin(angulo), -ponto.x * Math.Sin(angulo) + ponto.y * Math.Cos(angulo));
         }
-        public Vector2D UnivectorField(Vector2D robo, Vector2D referencia, Vector2D objetivo, double kr, double de, double passo)
+        public Vector2D UnivectorField(Vector2D robo, Vector2D referencia, Vector2D objetivo, double kr, double de, double passo, bool desvia, double raioDesvio, double g)
         {
             double angulo = Math.Atan2(objetivo.y - referencia.y, objetivo.x - referencia.x); //angulo entre a bola e o gol
 
@@ -2597,15 +2333,36 @@ namespace Futebol.estrategias.estrategia1
 
             double alpha = Math.Atan2(delta.y, delta.x);            // angulo entre o robo e a bola
 
-            double teta = PhiTUF(alpha, delta, kr, de); // angulo entre a possicao do robo e seu proximo passo
+            double teta = PhiTUF(alpha, delta, kr, de);
+            /////////////////////////////////////////////////////////////////////////////////
+            if(desvia)
+            {
+                Tuple<Vector2D, bool>[] obstaculos = DefineObstaculos();
+                //for(int i = 0; i< obstaculos.Length; i++)
+                //{
+                //    if (obstaculos[i].Item2) // se é um obstaculo
+                //        obstaculos[i] = Tuple.Create(RotacionaEixo(angulo, obstaculos[i].Item1), true); 
+                //}
 
+                Vector2D obstaculo = RotacionaEixo(angulo, ObstaculoMaisProximo(robo, obstaculos));
+                double r = roboRotacionado.Distance(obstaculo); // r = 0 caso não exista obstaculos
+
+                if (r == 0)
+                    teta = PhiTUF(alpha, delta, kr, de);
+                else if (r < raioDesvio)
+                    teta = PhiR(roboRotacionado, obstaculo);
+                else
+                    teta = PhiR2(robo, obstaculos, raioDesvio) * G(r - raioDesvio, g) + PhiTUF(alpha, delta, kr, de) * (1 - G(r - raioDesvio, g));
+            }
+
+            
             Vector2D univector = new Vector2D(Math.Cos(teta), Math.Sin(teta));
             univector = RotacionaEixo(-angulo, univector); // rotacionando de volta para as coordenadas originais da entrada
 
             if (passo > 0)
             {
                 --passo;
-                return UnivectorField(robo.Add(univector), referencia, objetivo, kr, de, passo);
+                return UnivectorField(robo.Add(univector), referencia, objetivo, kr, de, passo, desvia, raioDesvio, g);
             }
             else
             {

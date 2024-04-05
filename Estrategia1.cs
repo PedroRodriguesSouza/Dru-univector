@@ -6,6 +6,7 @@ using Futebol.src.estrategias.estrategia1;
 using Futebol.visao;
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography.Xml;
 using System.Windows.Forms;
 using static Futebol.sincronismo.ControleJogo;
 
@@ -2138,6 +2139,8 @@ namespace Futebol.estrategias.estrategia1
             double passo = 10;
             double fr = 300;
             double tolerancia = 50;
+            double raioDesvio = 40;
+            double g = 5;
 
             if (LateralDireito(posBola, tolerancia))
                 posGol = posGol;
@@ -2147,13 +2150,15 @@ namespace Futebol.estrategias.estrategia1
                 posGol.y = campo.limites.ladoInferior + tolerancia;
             if (LateralSuperior(posBola, tolerancia))
                 posGol.y = campo.limites.ladoSuperior - tolerancia;
-
             bool desvia = false;
-            if (AtrasDaBola(posRobo.x, posBola.x))
+
+            double aux = Math.Atan2(posBola.y - posGol.y, posBola.x - posGol.x);
+            Vector2D roboR = RotacionaEixo(aux, posRobo);
+            Vector2D bolaR = RotacionaEixo(aux, posBola);
+            if (AtrasDaBola(roboR.x, bolaR.x))
                 desvia = true;
-            //desvia = false;
-            double raioDesvio = 40;
-            double g = 20;
+            if(posRobo.Distance(posBola) > raioDesvio / 2)
+                desvia = true;
 
             DesenhaCampo(posRobo, posGol, posBola, kr, de, passo, fr, desvia, raioDesvio, g);
             DesenhaTrajetoria(posRobo, posGol, posBola, kr, de, passo, fr, 500, desvia, raioDesvio, g);
@@ -2331,20 +2336,22 @@ namespace Futebol.estrategias.estrategia1
 
             Vector2D delta = roboRotacionado.Sub(bolaRotacionada);  // delta x e y entre o robo e a bola (rotacionados)
 
-            double alpha = Math.Atan2(delta.y, delta.x);            // angulo entre o robo e a bola
+            double alpha = Math.Atan2(delta.y, delta.x);// angulo entre o robo e a bola
 
             double teta = PhiTUF(alpha, delta, kr, de);
-            /////////////////////////////////////////////////////////////////////////////////
+
             if(desvia)
             {
                 Tuple<Vector2D, bool>[] obstaculos = DefineObstaculos();
-                //for(int i = 0; i< obstaculos.Length; i++)
-                //{
-                //    if (obstaculos[i].Item2) // se é um obstaculo
-                //        obstaculos[i] = Tuple.Create(RotacionaEixo(angulo, obstaculos[i].Item1), true); 
-                //}
 
                 Vector2D obstaculo = RotacionaEixo(angulo, ObstaculoMaisProximo(robo, obstaculos));
+                for(int i = 0; i < obstaculos.Length; i++)
+                {
+                    if (obstaculos[i].Item2)
+                    {
+                        obstaculos[i] = Tuple.Create(RotacionaEixo(angulo, obstaculos[i].Item1), true);
+                    }
+                }
                 double r = roboRotacionado.Distance(obstaculo); // r = 0 caso não exista obstaculos
 
                 if (r == 0)
@@ -2352,7 +2359,7 @@ namespace Futebol.estrategias.estrategia1
                 else if (r < raioDesvio)
                     teta = PhiR(roboRotacionado, obstaculo);
                 else
-                    teta = PhiR2(robo, obstaculos, raioDesvio) * G(r - raioDesvio, g) + PhiTUF(alpha, delta, kr, de) * (1 - G(r - raioDesvio, g));
+                    teta = PhiR2(roboRotacionado, obstaculos, raioDesvio) * G(r - raioDesvio, g) + PhiTUF(alpha, delta, kr, de) * (1 - G(r - raioDesvio, g));
             }
 
             
